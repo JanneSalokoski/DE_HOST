@@ -4,26 +4,24 @@ import { nanoid } from 'nanoid';
 import './App.css';
 
 const config = {
-	url: 'ws://localhost:3000',
-	hostID: nanoid(10),
+	url: 'ws://192.168.1.36:3000',
+	version: '0.0.1'
 };
 
 
 const StatusLine = (props) => {
 	return (
 		<div className='StatusLine'>
-			<h2>Status</h2>
-			<div className={`StatusItem Connected ${props.connected}`} id='connected'>
-				Connected: {props.connected ? 'yes' : 'no'}
-			</div>
-			<div className='StatusItem ConnectionID'>
-				ConnectionID: {props.connectionID}
-			</div>
-			<div className={`StatusItem Election ${props.electionStatus}`} id='electionStatus'>
-				Election: {props.electionStatus}
-			</div>
-			<div className={`StatusItem VoteCount`} id='voteCount'>
-				Votes: {props.voteCount}
+			<div>
+				<div className={`StatusItem Connected ${props.connected ? 'online' : 'offline'}`} id='connected'>
+					{props.connected ? 'online' : 'offline'}
+				</div>
+				<div className={`StatusItem ConnectionID ${props.connected ? 'enabled' : 'disabled'}`}>
+					{props.connectionID}
+				</div>
+				<div className='StatusItem ServerAddress'>
+					{config.url}
+				</div>
 			</div>
 		</div>
 	);
@@ -33,27 +31,38 @@ const CandidateView = (props) => {
 	const [newCandidateName, setNewCandidateName] = React.useState('');
 	
 	function generateCandidateItems(candidates) {
-		return candidates.map(candidate => (
-			<li id={candidate.id} key={candidate.id}>{`${candidate.id}: ${candidate.name}`}</li>
-		));
+		if (candidates.length > 0) {
+			return candidates.map(candidate => (
+				<li id={candidate.id} key={candidate.id}>
+					<span className='CandidateName'>{candidate.name}</span>
+					<span className='CandidateID'>{candidate.id}</span>
+				</li>
+			));
+		}
+
+		return <span className='InfoText'>
+			Ehdokaslista on tyhjä. Voit lisätä ehdokkaita tämän laatikon alapuolelta!
+		</span>
 	}
 
 	return (
 		<div className='CandidateView'>
-			<h2>Candidates</h2>
+			<h2>Ehdokkaat</h2>
 			<div className='CandidateList'>
-				<ol>
+				<ol start='2'>
 					{generateCandidateItems(props.candidates)}
 				</ol>
 			</div>
-			<div className='NewCandidate'>
-				<label>Name: </label>
+			<div className={`NewCandidate ${props.electionStatus ? 'disabled' : 'enabled'}`}>
+				<h3 className='FormTitle'>Lisää uusi ehdokas</h3>
+				<label>Ehdokkaan nimi: </label>
 				<input type='text'
 					value={newCandidateName}
+					placeHolder='Innokas Virkailija'
 					onChange={(event) => setNewCandidateName(event.target.value)}
 				/>
 				<input type='button'
-					value='Submit!'
+					value='Lisää'
 					onClick={(event) => {
 						props.submitHandler(newCandidateName);
 						setNewCandidateName('');
@@ -66,106 +75,116 @@ const CandidateView = (props) => {
 
 const VoterView = (props) => {
 	function generateVoterItems(voters, verified) {
-		return voters.map(voter => (
-			<li>
-				<span>{voter.id}: </span>
-				<span>{voter.name}</span>
-				<input type='button' 
-					value={verified ? 'Remove' : 'Accept'}
-					onClick={(event) => {
-						(verified ? props.removeHandler : props.addHandler)(voter);
-					}}
-				/>
-			</li>
-		));
+		if (voters.length > 0) {
+			return voters.map(voter => (
+				<li>
+					<span className='VoterName'>{voter.name}</span>
+					<span className='VoterID'>{voter.id}</span>
+					<input type='button' className={verified ? 'RemoveButton' : 'AcceptButton'}
+						value={verified ? 'Remove' : 'Accept'}
+						onClick={(event) => {
+							(verified ? props.removeHandler : props.addHandler)(voter);
+						}}
+					/>
+				</li>
+			));
+		}
+
+		return <span className='InfoText'>
+			{verified ? 'Lista on tyhjä. Et ole hyväksynyt yhtään äänestäjää.' : 'Lista on tyhjä. Kukaan ei ole rekisteröitynyt äänestäjäksi, tai olet hyväksynyt kaikki äänestäjät.'}
+		</span>
 	}
 
-	return (
+	return props.disabled ? (
 		<div className='VoterView'>
-			<div className='unverified'>
-				<h2>Unverified voters</h2>
-				<ul>
-					{generateVoterItems(props.unverifiedVoters, false)}
-				</ul>
+			<h2>Äänestäjät</h2>
+			<div>
+				<h3>Varmistamattomat äänestäjät</h3>	
+				<div className='VoterList unverified'>
+					<ul>
+						{generateVoterItems(props.unverifiedVoters, false)}
+					</ul>
+				</div>
 			</div>
-			<div className='verified'>
-				<h2>Verified voters</h2>
-				<ul>
-					{generateVoterItems(props.verifiedVoters, true)}	
-				</ul>
+			<div>
+				<h3>Varmistetut äänestäjät</h3>
+				<div className='VoterList verified'>
+					<ul>
+						{generateVoterItems(props.verifiedVoters, true)}	
+					</ul>
+				</div>
 			</div>
 		</div>
-	);
+	): '';
 }
 
 const ElectionControls = (props) => {
-	function generateElectionControls(electionStatus) {
-		if (!electionStatus) {
-			return (
-				<input type='button'
-					value='Start election'
-					onClick={props.startElectionHandler}
-				/>
-			);
-		}
-
-		return (
-			<input type='button'
-				value='Stop election'
-				onClick={props.stopElectionHandler}
-			/>
-		);
-	}
-
 	return (
 		<div className='ElectionControls'>
-			<h2>Election controls</h2>
-			{generateElectionControls(props.electionStatus)}
+			<h2>Vaalin hallinta</h2>
+			<input type='button'
+				className={`StartButton ${props.electionStatus ? 'disabled' : 'enabled'}`}
+				value='Käynnistä vaali'
+				onClick={props.startElectionHandler}
+			/>
+			<input type='button'
+				className={`EndButton ${!props.electionStatus ? 'disabled' : 'enabled'}`}
+				value='Lopeta vaali'
+				onClick={props.stopElectionHandler}
+			/>
+			<div className={`ElectionStatistics ${props.electionStatus ? 'enabled' : 'disabled'}`}>
+				<h3>Vaalin tila</h3>
+				<p>Varmistettuja äänestäjiä: {props.voterCount}</p>
+				<p>Ääniä annettu: {props.voteCount}</p>
+			</div>
 		</div>
 	);
 }
 
 const ElectionResults = (props) => {
 	function getResultRows(votes, candidates) {
-		return candidates.map(candidate => ({
-			...candidate,
-			votes: votes.filter(vote =>
-				vote.candidate_id === candidate.id).length
-		})).sort((a, b) => {
-			if (a.votes > b.votes) {return -1}
-			else if (a.votes < b.votes) {return 1}
-			return 0;
-		}).map(candidate => (
-			<tr>
-				<td>{candidate.id}</td>
-				<td>{candidate.name}</td>
-				<td>{candidate.votes}</td>
-			</tr>
-		));
+		if (votes.length > 0) {
+			return candidates.map(candidate => ({
+				...candidate,
+				votes: votes.filter(vote =>
+					vote.candidate_id === candidate.id).length
+			})).sort((a, b) => {
+				if (a.votes > b.votes) {return -1}
+				else if (a.votes < b.votes) {return 1}
+				return 0;
+			}).map(candidate => (
+				<tr>
+					<td><span className='CandidateID'>{candidate.id}</span></td>
+					<td>{candidate.name}</td>
+					<td>{candidate.votes}</td>
+				</tr>
+			));
+		}
+
+		return <tr><td></td><td></td><td></td></tr>;
 	}
 
 	function getVoteRows(votes) {
 		console.log("Votes: ", votes)
 		return votes.map(vote => (
 			<tr>
-				<td>{vote.vote_id}</td>
+				<td><span className='VoteID'>{vote.vote_id}</span></td>
 				<td>{props.candidates.filter(candidate => candidate.id === vote.candidate_id)[0]?.name}</td>
-				<td>{vote.candidate_id}</td>
+				<td><span className='CandidateID'>{vote.candidate_id}</span></td>
 			</tr>
 		));
 	}
 
-	return (
+	return props.disabled && props.votes.length > 0 ? (
 		<div className='ElectionResults'>
-			<h2>Election results</h2>
-			<p>Votes given: {props.votes.length}</p>
-			<h3>Results</h3>
+			<h2>Vaalin tulokset</h2>
+			<h3>Vaalitulos</h3>
 			<table>
 				<thead>
 					<tr>
-						<th>Candidate ID</th>
-						<th>Candidate name</th>
-						<th>Vote amount</th>
+						<th>Ehdokkaan tunniste</th>
+						<th>Ehdokkaan nimi</th>
+						<th>Äänimäärä</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -173,13 +192,13 @@ const ElectionResults = (props) => {
 				</tbody>
 			</table>
 
-			<h3>Given votes</h3>
+			<h3>Annetut äänet</h3>
 			<table>
 				<thead>
 					<tr>
-						<th>Vote ID</th>
-						<th>Candidate</th>
-						<th>Candidate ID</th>
+						<th>Äänen tunniste</th>
+						<th>Ehdokkaan nimi</th>
+						<th>Ehdokkaan tunniste</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -187,7 +206,7 @@ const ElectionResults = (props) => {
 				</tbody>
 			</table>
 		</div>
-	);
+	): '';
 }
 
 
@@ -302,6 +321,7 @@ export default () => {
 
 	return (
 		<div className='App'>
+			<h1 className='title'>DE_HOST [{config.version}]</h1>
 			<StatusLine
 				connected={connected}
 				connectionID={connectionID}
@@ -311,8 +331,9 @@ export default () => {
 			<CandidateView
 				candidates={candidates}
 				submitHandler={newCandidateHandler}
+				electionStatus={electionStatus}
 			/>
-			<VoterView
+			<VoterView disabled={!electionStatus}
 				unverifiedVoters={unverifiedVoters}
 				verifiedVoters={verifiedVoters}
 
@@ -320,11 +341,13 @@ export default () => {
 				addHandler={addVoterHandler}
 			/>
 			<ElectionControls
+				voteCount={voteCount}
+				voterCount={verifiedVoters.length}
 				electionStatus={electionStatus}
 				startElectionHandler={startElectionHandler}
 				stopElectionHandler={stopElectionHandler}
 			/>
-			<ElectionResults
+			<ElectionResults disabled={!electionStatus}
 				votes={electionResults.votes}
 				candidates={candidates}
 			/>
