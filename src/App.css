@@ -33,6 +33,11 @@
 	--border-radius: 2px;
 }
 
+input[type=text], input[type=button] {
+-webkit-appearance: none;
+-webkit-border-radius: 0;
+}
+
 html, body, * {
 	margin: 0px;
 	padding: 0px;
@@ -53,7 +58,7 @@ body {
     font-family: 'IBM Plex Sans Condensed', sans-serif;
     line-height: 125%;
 
-    background-color: var(--color-snowstorm-nord6);
+    background-color: var(--color-snowstorm-nord5);
     color: var(--color-polar-night-nord0);
 }
 
@@ -370,8 +375,17 @@ input {
 input:not(:first-of-type) {
 	margin-left: 1ch;
 }
-
 input[type=button], input[type=submit] {
 	background-color: var(--color-frost-nord10);
+	color: var(--color-snowstorm-nord5);
+}
+
+input[type=button]:hover, input[type=submit]:hover {
 	color: var(--color-snowstorm-nord6);
+	cursor: pointer;
+}
+
+input[type=button]:active, input[type=submit]:active {
+	background-color: var(--color-frost-nord9);
+	border-color: var(--color-polar-night-nord1);
 }

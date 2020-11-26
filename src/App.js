@@ -4,8 +4,9 @@ import { nanoid } from 'nanoid';
 import './App.css';
 
 const config = {
-	url: 'ws://192.168.1.36:3000',
-	version: '0.0.1'
+	//url: 'ws://thawing-sands-14294.herokuapp.com/',
+	url: 'ws://localhost:8000/',
+	version: '1.0.0'
 };
 
 
@@ -29,12 +30,17 @@ const StatusLine = (props) => {
 
 const CandidateView = (props) => {
 	const [newCandidateName, setNewCandidateName] = React.useState('');
-	
+	const [newCandidateList, setNewCandidateList] = React.useState('');
+
 	function generateCandidateItems(candidates) {
 		if (candidates.length > 0) {
+			console.log(candidates);
 			return candidates.map(candidate => (
 				<li id={candidate.id} key={candidate.id}>
 					<span className='CandidateName'>{candidate.name}</span>
+					<span className='CandidateList'>
+						{candidate.list !== candidate.name ? ` [${candidate.list}]` : ``}
+					</span>
 					<span className='CandidateID'>{candidate.id}</span>
 				</li>
 			));
@@ -55,16 +61,25 @@ const CandidateView = (props) => {
 			</div>
 			<div className={`NewCandidate ${props.electionStatus ? 'disabled' : 'enabled'}`}>
 				<h3 className='FormTitle'>Lisää uusi ehdokas</h3>
-				<label>Ehdokkaan nimi: </label>
+				<label>Ehdokkaan tiedot: </label>
 				<input type='text'
 					value={newCandidateName}
-					placeHolder='Innokas Virkailija'
+					placeHolder='Ehdokkaan nimi'
 					onChange={(event) => setNewCandidateName(event.target.value)}
+				/>
+				<input type='text'
+					value={newCandidateList}
+					placeHolder='Vaalilista'
+					onChange={(event) => setNewCandidateList(event.target.value)}
 				/>
 				<input type='button'
 					value='Lisää'
 					onClick={(event) => {
-						props.submitHandler(newCandidateName);
+						props.submitHandler({
+							name: newCandidateName,
+							list: newCandidateList
+						});
+
 						setNewCandidateName('');
 					}}
 				/>
@@ -81,7 +96,7 @@ const VoterView = (props) => {
 					<span className='VoterName'>{voter.name}</span>
 					<span className='VoterID'>{voter.id}</span>
 					<input type='button' className={verified ? 'RemoveButton' : 'AcceptButton'}
-						value={verified ? 'Remove' : 'Accept'}
+						value={verified ? 'Poista' : 'Hyväksy'}
 						onClick={(event) => {
 							(verified ? props.removeHandler : props.addHandler)(voter);
 						}}
@@ -129,7 +144,7 @@ const ElectionControls = (props) => {
 			/>
 			<input type='button'
 				className={`EndButton ${!props.electionStatus ? 'disabled' : 'enabled'}`}
-				value='Lopeta vaali'
+				value='Päätä vaali'
 				onClick={props.stopElectionHandler}
 			/>
 			<div className={`ElectionStatistics ${props.electionStatus ? 'enabled' : 'disabled'}`}>
@@ -156,7 +171,9 @@ const ElectionResults = (props) => {
 				<tr>
 					<td><span className='CandidateID'>{candidate.id}</span></td>
 					<td>{candidate.name}</td>
+					<td>{candidate.list}</td>
 					<td>{candidate.votes}</td>
+					<td>{candidate.compare_number.toFixed(3)}</td>
 				</tr>
 			));
 		}
@@ -166,13 +183,17 @@ const ElectionResults = (props) => {
 
 	function getVoteRows(votes) {
 		console.log("Votes: ", votes)
-		return votes.map(vote => (
-			<tr>
-				<td><span className='VoteID'>{vote.vote_id}</span></td>
-				<td>{props.candidates.filter(candidate => candidate.id === vote.candidate_id)[0]?.name}</td>
-				<td><span className='CandidateID'>{vote.candidate_id}</span></td>
-			</tr>
-		));
+		return votes.map(vote => {
+			const candidate = props.candidates.filter(candidate => candidate.id === vote.candidate_id)[0];
+			return (
+				<tr>
+					<td><span className='VoteID'>{vote.vote_id}</span></td>
+					<td>{`${candidate?.name}`}</td>
+					<td>{candidate.list}</td>
+					<td><span className='CandidateID'>{vote.candidate_id}</span></td>
+				</tr>
+			);
+		});
 	}
 
 	return props.disabled && props.votes.length > 0 ? (
@@ -184,7 +205,9 @@ const ElectionResults = (props) => {
 					<tr>
 						<th>Ehdokkaan tunniste</th>
 						<th>Ehdokkaan nimi</th>
+						<th>Vaalilista</th>
 						<th>Äänimäärä</th>
+						<th>Vertausluku</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -198,6 +221,7 @@ const ElectionResults = (props) => {
 					<tr>
 						<th>Äänen tunniste</th>
 						<th>Ehdokkaan nimi</th>
+						<th>Vaalilista</th>
 						<th>Ehdokkaan tunniste</th>
 					</tr>
 				</thead>
@@ -223,7 +247,7 @@ export default () => {
 	const [voteCount, setVoteCount] = React.useState(0);
 
 	const [electionResults, setElectionResults] = React.useState({
-		votes: []
+		votes: [], candidates: []
 	});
 
 	const action_handlers = {
@@ -274,11 +298,14 @@ export default () => {
 		});
 	}, []);
 
-	function newCandidateHandler(name) {
+	function newCandidateHandler(candidate) {
 		socket.send(JSON.stringify({
 			connection: connectionID,
 			type: 'register_candidate',
-			payload: { name: name }
+			payload: {
+				name: candidate.name,
+				list: candidate.list
+			}
 		}));
 	}
 
@@ -349,7 +376,7 @@ export default () => {
 			/>
 			<ElectionResults disabled={!electionStatus}
 				votes={electionResults.votes}
-				candidates={candidates}
+				candidates={electionResults.candidates}
 			/>
 		</div>
 	);
